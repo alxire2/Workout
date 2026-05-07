@@ -1,2 +1,2 @@
 # Workout
-Simple workout tracking app that allows you to check off sets once complete
+Simple Android workout tracking app that allows you to check off sets once complete
