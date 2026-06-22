@@ -57,14 +57,27 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
 .exercise-arrow.open{transform:rotate(180deg)}
 .sets-container{padding:0 16px 14px;display:none;flex-direction:column;gap:6px;animation:slideIn .2s ease-out}
 .sets-container.open{display:flex}
-.set-btn{display:flex;align-items:center;gap:12px;padding:10px 12px;background:#0D0D0D;border:1px solid #222;border-radius:10px;cursor:pointer;transition:all .2s;color:#F0EDE6;width:100%;-webkit-appearance:none;appearance:none;outline:none;font-family:inherit}
-.set-check{width:26px;height:26px;border-radius:8px;border:2px solid #333;background:transparent;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
-.set-label{font-size:13px;font-weight:500;color:#CCC;text-align:left}
-.set-detail{font-size:11px;color:#555;margin-left:8px}
-.set-btn.checked .set-label{color:#777;text-decoration:line-through;text-decoration-color:#55555580}
-.set-btn.checked .set-check{animation:checkPop .3s ease-out}
+
+.set-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0D0D0D;border:1px solid #222;border-radius:10px;transition:all .2s}
+.set-row.checked{border-color:var(--ac,#222)}
+.set-check{width:26px;height:26px;border-radius:8px;border:2px solid #333;background:transparent;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none}
+.set-check.on{animation:checkPop .3s ease-out}
+.set-num{font-size:12px;color:#666;width:18px;flex-shrink:0;text-align:center}
+.set-inputs{display:flex;gap:6px;flex:1;align-items:center}
+.set-field{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+.set-field label{font-size:9px;color:#555;letter-spacing:1px;text-transform:uppercase}
+.set-field input{width:100%;background:#1A1A1A;border:1px solid #2A2A2A;border-radius:6px;color:#F0EDE6;font-family:inherit;font-size:14px;padding:6px 4px;text-align:center;outline:none;-webkit-appearance:none;appearance:none}
+.set-field input:focus{border-color:var(--ac,#555)}
+.set-field input::placeholder{color:#444;font-size:11px}
+.set-cardio-label{font-size:13px;font-weight:500;color:#CCC;text-align:left;flex:1}
+.set-cardio-label.done-label{color:#777;text-decoration:line-through;text-decoration-color:#55555580}
+
+.add-set-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:transparent;border:1px dashed #333;border-radius:10px;cursor:pointer;color:#666;font-size:12px;font-family:inherit;width:100%;-webkit-appearance:none;appearance:none;outline:none;transition:all .2s}
+.add-set-btn:active{background:#1A1A1A;border-color:#555}
+.remove-set-btn{width:20px;height:20px;border-radius:50%;background:transparent;border:1px solid #333;color:#555;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-appearance:none;appearance:none;outline:none;transition:all .2s;line-height:1}
+.remove-set-btn:active{background:#3A1A1A;border-color:#E85D3A80;color:#E85D3A}
+
 .confetti-container{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:100}
-.confetti{position:absolute;top:-20px;border-radius:50%}
 </style>
 </head>
 <body>
@@ -106,7 +119,7 @@ const WORKOUTS = {
   A: {
     label: "Day A", subtitle: "Push + Quads", color: "#E85D3A",
     exercises: [
-      { name: "Run / Walk", sets: 1, detail: "5 miles", icon: "🏃" },
+      { name: "Run / Walk", sets: 1, detail: "5 miles", icon: "🏃", cardio: true },
       { name: "Barbell Bench Press", sets: 3, detail: "8-10 reps", icon: "🏋️" },
       { name: "Overhead Press", sets: 3, detail: "8-10 reps", icon: "🏋️" },
       { name: "Dumbbell Flyes", sets: 3, detail: "12-15 reps", icon: "🦋" },
@@ -117,7 +130,7 @@ const WORKOUTS = {
   B: {
     label: "Day B", subtitle: "Pull + Hinge", color: "#2D7DD2",
     exercises: [
-      { name: "Run / Walk", sets: 1, detail: "5 miles", icon: "🏃" },
+      { name: "Run / Walk", sets: 1, detail: "5 miles", icon: "🏃", cardio: true },
       { name: "Hex Bar Deadlift", sets: 3, detail: "6-8 reps", icon: "🏋️" },
       { name: "Cable Lat Pulldowns", sets: 3, detail: "10-12 reps", icon: "🔽" },
       { name: "Cable Rows", sets: 3, detail: "10-12 reps", icon: "🚣" },
@@ -128,7 +141,7 @@ const WORKOUTS = {
   R: {
     label: "Rest Day", subtitle: "Recovery", color: "#5A7D4F",
     exercises: [
-      { name: "Run / Walk (optional)", sets: 1, detail: "5 miles easy pace", icon: "🚶" }
+      { name: "Run / Walk (optional)", sets: 1, detail: "5 miles easy pace", icon: "🚶", cardio: true }
     ]
   }
 };
@@ -140,17 +153,48 @@ const DAY_COLORS = { A: "#E85D3A", B: "#2D7DD2", R: "#5A7D4F" };
 
 let selectedDate = new Date();
 let expandedExercise = null;
-let completedSets = {};
 let startDate;
+
+// Data shape: { "2026-5-22": { sets: { "0-0": { done:true, weight:"135", reps:"10" } }, extra: { "1": 2 } } }
+let dayData = {};
 
 function dateKey(d) {
   return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
 }
 
+function getDk() { return dateKey(selectedDate); }
+
+function getDayEntry(dk) {
+  if (!dayData[dk]) dayData[dk] = { sets: {}, extra: {} };
+  // Migrate old format: if sets values are just `true`, convert
+  const s = dayData[dk].sets;
+  for (const k in s) {
+    if (s[k] === true) s[k] = { done: true, weight: "", reps: "" };
+  }
+  if (!dayData[dk].extra) dayData[dk].extra = {};
+  return dayData[dk];
+}
+
 function loadData() {
   try {
-    const s = localStorage.getItem("workout-sets");
-    if (s) completedSets = JSON.parse(s);
+    const s = localStorage.getItem("workout-sets-v2");
+    if (s) {
+      dayData = JSON.parse(s);
+    } else {
+      // Try migrating v1 data
+      const v1 = localStorage.getItem("workout-sets");
+      if (v1) {
+        const old = JSON.parse(v1);
+        for (const dk in old) {
+          dayData[dk] = { sets: {}, extra: {} };
+          for (const key in old[dk]) {
+            dayData[dk].sets[key] = old[dk][key] === true
+              ? { done: true, weight: "", reps: "" }
+              : old[dk][key];
+          }
+        }
+      }
+    }
   } catch(e) {}
   try {
     const sd = localStorage.getItem("workout-start");
@@ -163,7 +207,7 @@ function loadData() {
 }
 
 function saveData() {
-  localStorage.setItem("workout-sets", JSON.stringify(completedSets));
+  localStorage.setItem("workout-sets-v2", JSON.stringify(dayData));
 }
 
 function getDayType(d) {
@@ -179,27 +223,81 @@ function getWeekStart(d) {
   return w;
 }
 
-function isSetDone(exIdx, setIdx) {
-  const dk = dateKey(selectedDate);
-  return !!(completedSets[dk] && completedSets[dk][exIdx + "-" + setIdx]);
+function getSetData(dk, exIdx, setIdx) {
+  const entry = getDayEntry(dk);
+  return entry.sets[exIdx + "-" + setIdx] || null;
 }
 
-function toggleSet(exIdx, setIdx) {
-  const dk = dateKey(selectedDate);
-  if (!completedSets[dk]) completedSets[dk] = {};
+function isSetDone(dk, exIdx, setIdx) {
+  const sd = getSetData(dk, exIdx, setIdx);
+  return sd ? sd.done : false;
+}
+
+function getExtraSets(dk, exIdx) {
+  const entry = getDayEntry(dk);
+  return entry.extra[exIdx] || 0;
+}
+
+function toggleDone(exIdx, setIdx) {
+  const dk = getDk();
+  const entry = getDayEntry(dk);
   const key = exIdx + "-" + setIdx;
-  if (completedSets[dk][key]) {
-    delete completedSets[dk][key];
-  } else {
-    completedSets[dk][key] = true;
-  }
+  if (!entry.sets[key]) entry.sets[key] = { done: false, weight: "", reps: "" };
+  entry.sets[key].done = !entry.sets[key].done;
   saveData();
   render();
 }
 
-function countDone(exIdx, sets) {
+function updateField(exIdx, setIdx, field, value) {
+  const dk = getDk();
+  const entry = getDayEntry(dk);
+  const key = exIdx + "-" + setIdx;
+  if (!entry.sets[key]) entry.sets[key] = { done: false, weight: "", reps: "" };
+  entry.sets[key][field] = value;
+  saveData();
+  // No re-render here to avoid losing focus
+}
+
+function addExtraSet(exIdx) {
+  const dk = getDk();
+  const entry = getDayEntry(dk);
+  entry.extra[exIdx] = (entry.extra[exIdx] || 0) + 1;
+  saveData();
+  render();
+}
+
+function removeExtraSet(exIdx, setIdx) {
+  const dk = getDk();
+  const entry = getDayEntry(dk);
+  // Remove this set's data
+  const key = exIdx + "-" + setIdx;
+  delete entry.sets[key];
+  // Shift down any sets above this index
+  const totalBase = getTotalBaseSets(exIdx);
+  const totalExtra = entry.extra[exIdx] || 0;
+  const totalSets = totalBase + totalExtra;
+  for (let i = setIdx + 1; i < totalSets; i++) {
+    const oldKey = exIdx + "-" + i;
+    const newKey = exIdx + "-" + (i - 1);
+    if (entry.sets[oldKey]) {
+      entry.sets[newKey] = entry.sets[oldKey];
+      delete entry.sets[oldKey];
+    }
+  }
+  entry.extra[exIdx] = Math.max(0, totalExtra - 1);
+  saveData();
+  render();
+}
+
+function getTotalBaseSets(exIdx) {
+  const dayType = getDayType(selectedDate);
+  const workout = WORKOUTS[dayType];
+  return workout.exercises[exIdx].sets;
+}
+
+function countDone(dk, exIdx, totalSets) {
   let n = 0;
-  for (let i = 0; i < sets; i++) if (isSetDone(exIdx, i)) n++;
+  for (let i = 0; i < totalSets; i++) if (isSetDone(dk, exIdx, i)) n++;
   return n;
 }
 
@@ -225,9 +323,8 @@ function render() {
   const dayType = getDayType(selectedDate);
   const workout = WORKOUTS[dayType];
   const color = workout.color;
-  const dk = dateKey(selectedDate);
+  const dk = getDk();
 
-  // Header
   document.getElementById("header").style.borderBottomColor = color + "22";
   document.getElementById("day-name").textContent = DAY_NAMES[selectedDate.getDay()];
   const dd = document.getElementById("date-display");
@@ -245,38 +342,34 @@ function render() {
     const d = new Date(ws);
     d.setDate(d.getDate() + i);
     const dtype = getDayType(d);
-    const sel = dateKey(d) === dateKey(selectedDate);
+    const sel = dateKey(d) === dk;
     const tod = dateKey(d) === dateKey(today);
     const dc = DAY_COLORS[dtype];
-
     const btn = document.createElement("button");
     btn.className = "week-day";
-    if (sel) {
-      btn.style.background = dc + "20";
-      btn.style.borderColor = dc + "60";
-    }
+    if (sel) { btn.style.background = dc + "20"; btn.style.borderColor = dc + "60"; }
     btn.innerHTML = `
       <span class="week-day-name">${DAY_NAMES[d.getDay()].slice(0,2)}</span>
       <span class="week-day-num sg" style="font-weight:${sel?700:400};color:${sel?dc:"#888"}">${d.getDate()}</span>
-      <span class="week-day-dot" style="background:${tod?dc:"transparent"}"></span>
-    `;
-    const capturedDate = new Date(d);
-    btn.addEventListener("click", () => {
-      selectedDate = capturedDate;
-      expandedExercise = null;
-      render();
-    });
+      <span class="week-day-dot" style="background:${tod?dc:"transparent"}"></span>`;
+    const cd = new Date(d);
+    btn.addEventListener("click", () => { selectedDate = cd; expandedExercise = null; render(); });
     strip.appendChild(btn);
   }
 
   // Progress
-  const totalSets = workout.exercises.reduce((s, e) => s + e.sets, 0);
-  let completedCount = 0;
-  if (completedSets[dk]) completedCount = Object.keys(completedSets[dk]).length;
-  const progress = totalSets > 0 ? completedCount / totalSets : 0;
-  const isComplete = completedCount === totalSets && totalSets > 0;
+  let totalSetsAll = 0;
+  let completedAll = 0;
+  workout.exercises.forEach((ex, exIdx) => {
+    const extra = getExtraSets(dk, exIdx);
+    const total = ex.sets + extra;
+    totalSetsAll += total;
+    completedAll += countDone(dk, exIdx, total);
+  });
+  const progress = totalSetsAll > 0 ? completedAll / totalSetsAll : 0;
+  const isComplete = completedAll === totalSetsAll && totalSetsAll > 0;
 
-  document.getElementById("progress-count").textContent = completedCount + "/" + totalSets;
+  document.getElementById("progress-count").textContent = completedAll + "/" + totalSetsAll;
   document.getElementById("progress-count").style.color = isComplete ? "#5A7D4F" : color;
   const fill = document.getElementById("progress-fill");
   fill.style.width = (progress * 100) + "%";
@@ -285,7 +378,6 @@ function render() {
 
   const banner = document.getElementById("complete-banner");
   banner.className = "complete-banner" + (isComplete ? " show" : "");
-
   if (isComplete && !wasComplete) showConfetti();
   wasComplete = isComplete;
 
@@ -293,8 +385,10 @@ function render() {
   const container = document.getElementById("exercises");
   container.innerHTML = "";
   workout.exercises.forEach((ex, exIdx) => {
-    const done = countDone(exIdx, ex.sets);
-    const exComplete = done === ex.sets;
+    const extra = getExtraSets(dk, exIdx);
+    const totalSets = ex.sets + extra;
+    const done = countDone(dk, exIdx, totalSets);
+    const exComplete = done === totalSets;
     const isExpanded = expandedExercise === exIdx;
 
     const div = document.createElement("div");
@@ -308,49 +402,109 @@ function render() {
         <span class="exercise-icon">${ex.icon}</span>
         <div>
           <div class="exercise-name sg" style="color:${exComplete?"#7BAF6E":"#F0EDE6"};text-decoration:${exComplete?"line-through":"none"};text-decoration-color:#5A7D4F60">${ex.name}</div>
-          <div class="exercise-detail">${ex.sets > 1 ? ex.sets + " sets · " : ""}${ex.detail}</div>
+          <div class="exercise-detail">${totalSets > 1 ? totalSets + " sets · " : ""}${ex.detail}</div>
         </div>
       </div>
       <div class="exercise-right">
-        ${ex.sets > 1 ? `<span class="exercise-count" style="color:${exComplete?"#5A7D4F":"#555"}">${done}/${ex.sets}</span>` : ""}
+        ${totalSets > 1 ? `<span class="exercise-count" style="color:${exComplete?"#5A7D4F":"#555"}">${done}/${totalSets}</span>` : ""}
         <span class="exercise-arrow${isExpanded?" open":""}">▼</span>
-      </div>
-    `;
-    header.addEventListener("click", () => {
-      expandedExercise = isExpanded ? null : exIdx;
-      render();
-    });
+      </div>`;
+    header.addEventListener("click", () => { expandedExercise = isExpanded ? null : exIdx; render(); });
     div.appendChild(header);
 
     const setsDiv = document.createElement("div");
     setsDiv.className = "sets-container" + (isExpanded ? " open" : "");
+    setsDiv.style.setProperty("--ac", color);
 
-    for (let si = 0; si < ex.sets; si++) {
-      const checked = isSetDone(exIdx, si);
-      const btn = document.createElement("button");
-      btn.className = "set-btn" + (checked ? " checked" : "");
-      if (checked) {
-        btn.style.background = color + "10";
-        btn.style.borderColor = color + "40";
+    for (let si = 0; si < totalSets; si++) {
+      const sd = getSetData(dk, exIdx, si);
+      const checked = sd ? sd.done : false;
+      const isExtra = si >= ex.sets;
+
+      const row = document.createElement("div");
+      row.className = "set-row" + (checked ? " checked" : "");
+      if (checked) { row.style.background = color + "10"; row.style.borderColor = color + "40"; }
+
+      // Checkbox
+      const chk = document.createElement("button");
+      chk.className = "set-check" + (checked ? " on" : "");
+      chk.style.borderColor = checked ? color : "#333";
+      chk.style.background = checked ? color : "transparent";
+      if (checked) chk.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7L6 10L11 4" stroke="#0D0D0D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const cExIdx = exIdx, cSetIdx = si;
+      chk.addEventListener("click", (e) => { e.stopPropagation(); toggleDone(cExIdx, cSetIdx); });
+      row.appendChild(chk);
+
+      if (ex.cardio) {
+        // Cardio: just show label
+        const lbl = document.createElement("span");
+        lbl.className = "set-cardio-label" + (checked ? " done-label" : "");
+        lbl.textContent = ex.detail;
+        row.appendChild(lbl);
+      } else {
+        // Set number
+        const num = document.createElement("span");
+        num.className = "set-num";
+        num.textContent = si + 1;
+        row.appendChild(num);
+
+        // Weight + reps inputs
+        const inputs = document.createElement("div");
+        inputs.className = "set-inputs";
+
+        const wField = document.createElement("div");
+        wField.className = "set-field";
+        const wLabel = document.createElement("label");
+        wLabel.textContent = "lbs";
+        const wInput = document.createElement("input");
+        wInput.type = "number";
+        wInput.inputMode = "decimal";
+        wInput.placeholder = "0";
+        wInput.value = sd ? sd.weight : "";
+        wInput.addEventListener("input", (e) => { updateField(cExIdx, cSetIdx, "weight", e.target.value); });
+        wInput.addEventListener("click", (e) => e.stopPropagation());
+        wField.appendChild(wLabel);
+        wField.appendChild(wInput);
+
+        const rField = document.createElement("div");
+        rField.className = "set-field";
+        const rLabel = document.createElement("label");
+        rLabel.textContent = "reps";
+        const rInput = document.createElement("input");
+        rInput.type = "number";
+        rInput.inputMode = "numeric";
+        rInput.placeholder = "0";
+        rInput.value = sd ? sd.reps : "";
+        rInput.addEventListener("input", (e) => { updateField(cExIdx, cSetIdx, "reps", e.target.value); });
+        rInput.addEventListener("click", (e) => e.stopPropagation());
+        rField.appendChild(rLabel);
+        rField.appendChild(rInput);
+
+        inputs.appendChild(wField);
+        inputs.appendChild(rField);
+        row.appendChild(inputs);
+
+        // Remove button for extra sets only
+        if (isExtra) {
+          const rm = document.createElement("button");
+          rm.className = "remove-set-btn";
+          rm.innerHTML = "&#x2715;";
+          rm.addEventListener("click", (e) => { e.stopPropagation(); removeExtraSet(cExIdx, cSetIdx); });
+          row.appendChild(rm);
+        }
       }
 
-      btn.innerHTML = `
-        <div class="set-check" style="border-color:${checked?color:"#333"};background:${checked?color:"transparent"}">
-          ${checked ? '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7L6 10L11 4" stroke="#0D0D0D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ""}
-        </div>
-        <div style="text-align:left">
-          <span class="set-label">${ex.sets === 1 ? ex.detail : "Set " + (si + 1)}</span>
-          ${ex.sets > 1 ? `<span class="set-detail">${ex.detail}</span>` : ""}
-        </div>
-      `;
+      setsDiv.appendChild(row);
+    }
 
-      const capturedEx = exIdx;
-      const capturedSet = si;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleSet(capturedEx, capturedSet);
-      });
-      setsDiv.appendChild(btn);
+    // Add set button (not for cardio)
+    if (!ex.cardio) {
+      const addBtn = document.createElement("button");
+      addBtn.className = "add-set-btn";
+      addBtn.innerHTML = "+ Add Set";
+      const cExIdx2 = exIdx;
+      addBtn.addEventListener("click", (e) => { e.stopPropagation(); addExtraSet(cExIdx2); });
+      setsDiv.appendChild(addBtn);
     }
 
     div.appendChild(setsDiv);
@@ -358,11 +512,9 @@ function render() {
   });
 }
 
-// Init
 loadData();
 render();
 
-// Register service worker
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
