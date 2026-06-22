@@ -436,11 +436,25 @@ function render() {
       row.appendChild(chk);
 
       if (ex.cardio) {
-        // Cardio: just show label
-        const lbl = document.createElement("span");
-        lbl.className = "set-cardio-label" + (checked ? " done-label" : "");
-        lbl.textContent = ex.detail;
-        row.appendChild(lbl);
+        // Cardio: distance input
+        const inputs = document.createElement("div");
+        inputs.className = "set-inputs";
+        const dField = document.createElement("div");
+        dField.className = "set-field";
+        const dLabel = document.createElement("label");
+        dLabel.textContent = "miles";
+        const dInput = document.createElement("input");
+        dInput.type = "number";
+        dInput.inputMode = "decimal";
+        dInput.step = "0.1";
+        dInput.placeholder = "0";
+        dInput.value = sd ? (sd.distance || "") : "";
+        dInput.addEventListener("input", (e) => { updateField(cExIdx, cSetIdx, "distance", e.target.value); });
+        dInput.addEventListener("click", (e) => e.stopPropagation());
+        dField.appendChild(dLabel);
+        dField.appendChild(dInput);
+        inputs.appendChild(dField);
+        row.appendChild(inputs);
       } else {
         // Set number
         const num = document.createElement("span");
